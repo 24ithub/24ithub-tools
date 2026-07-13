@@ -1,39 +1,60 @@
 # 24IThub VICIdial Inode Recovery Tool
 
-A recovery and maintenance utility for VICIdial servers running on AlmaLinux 9.
+A lightweight recovery tool for **VICIdial servers running on AlmaLinux 9**.
 
-This tool repairs a common VICIdial server issue where MariaDB fails to start because the filesystem has exhausted all available inodes, even though several gigabytes of disk space may still be free.
-
-The most common cause addressed by this tool is an abnormally large Postfix maildrop queue containing millions of small files.
+This utility automatically recovers MariaDB startup failures caused by **inode exhaustion**, usually triggered by millions of files accumulating in the Postfix maildrop queue.
 
 ---
 
-## When should this tool be used?
+# 🚀 Quick Run
 
-Run this tool when the server shows symptoms such as:
+Run the latest version directly from GitHub:
 
-- MariaDB fails to start
-- VICIdial displays database connection errors
-- `No space left on device`
-- `Can't create test file`
-- `DBI connect failed`
-- `Couldn't connect to database`
-- MariaDB reports `Result: resources`
-- Disk space is available, but services cannot create new files
-- VICIdial keepalive cannot connect to MariaDB
-
-Example MariaDB error:
-
-```text
-Can't create test file '/var/lib/mysql/server.lower-test'
-Errcode: 28 "No space left on device"
+```bash
+curl -fsSL https://raw.githubusercontent.com/24ithub/24ithub-tools/main/fix-vici.sh | bash
 ```
 
+No installation required.
+
 ---
 
-## Verify the issue before running
+# Features
 
-Check normal disk usage:
+- Detects inode exhaustion
+- Stops and disables Postfix
+- Cleans Postfix maildrop queue
+- Frees filesystem inodes
+- Starts MariaDB
+- Checks VICIdial database
+- Repairs crashed database tables
+- Verifies database integrity
+- Starts Asterisk (if required)
+- Starts Apache (if required)
+- Executes VICIdial KeepAlive
+- Generates recovery log
+- Displays complete system health report
+
+---
+
+# When should I run this tool?
+
+Run this tool only if your server shows one or more of the following symptoms:
+
+- MariaDB fails to start
+- VICIdial cannot connect to database
+- DBI connect failed
+- Couldn't connect to database
+- No space left on device
+- Can't create test file
+- MariaDB exits with Result: resources
+- Disk space is available but new files cannot be created
+- Filesystem inode usage reaches 100%
+
+---
+
+# Verify Before Running
+
+Check available disk space:
 
 ```bash
 df -h
@@ -45,55 +66,44 @@ Check inode usage:
 df -i
 ```
 
-Example of inode exhaustion:
+Example:
 
 ```text
-Filesystem      Size  Used Avail Use% Mounted on
-/dev/loop1       48G   31G   15G  68% /
+Filesystem      Size Used Avail Use%
+/dev/loop1       48G 31G 15G 68%
 
-Filesystem       Inodes   IUsed IFree IUse% Mounted on
-/dev/loop1      3145728 3145728     0  100% /
+Filesystem      Inodes   IUsed   IFree IUse%
+/dev/loop1      3145728 3145728      0 100%
 ```
 
-In this example, the server still has 15 GB of disk space available, but no free inodes remain.
+If **disk space is available** but **inode usage is 100%**, run the recovery tool.
 
 ---
 
-## What does the tool do?
+# What does this tool do?
 
-The script performs the following recovery actions:
+The recovery process automatically:
 
-- Verifies that it is running as root
-- Displays disk and inode usage
-- Stops and disables Postfix
-- Counts files in the Postfix maildrop queue
-- Deletes Postfix maildrop files in safe batches
-- Retries cleanup until the queue is empty
-- Disables cron email output to the root user
-- Starts MariaDB
-- Checks the VICIdial `asterisk` database
-- Automatically repairs supported crashed tables
-- Runs a final database verification
-- Checks and starts Asterisk when required
-- Checks and starts Apache
-- Runs the VICIdial keepalive script
-- Displays the final health status
-- Saves a recovery log
-
-Recovery log:
-
-```text
-/var/log/24ithub-fix-vici.log
-```
+1. Validates the environment
+2. Checks inode usage
+3. Stops Postfix
+4. Removes Postfix maildrop files
+5. Frees filesystem inodes
+6. Starts MariaDB
+7. Checks the VICIdial database
+8. Repairs supported crashed tables
+9. Verifies database integrity
+10. Starts Asterisk if necessary
+11. Starts Apache if necessary
+12. Executes VICIdial KeepAlive
+13. Generates a final health report
 
 ---
 
-## Supported platforms
-
-Tested and designed for:
+# Supported Platforms
 
 - AlmaLinux 9
-- VICIdial 2.14 and compatible installations
+- VICIdial 2.14
 - MariaDB 10.x
 - Asterisk
 - Apache HTTP Server
@@ -101,146 +111,67 @@ Tested and designed for:
 
 ---
 
-## Quick run
+# Recovery Log
 
-Run the latest version directly from GitHub:
+The tool automatically generates:
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/24ithub/24ithub-tools/main/fix-vici.sh | bash
-```
-
-The command must be run as the root user.
-
----
-
-## Download and run locally
-
-Download the script:
-
-```bash
-curl -O https://raw.githubusercontent.com/24ithub/24ithub-tools/main/fix-vici.sh
-```
-
-Make it executable:
-
-```bash
-chmod +x fix-vici.sh
-```
-
-Run it:
-
-```bash
-./fix-vici.sh
+```text
+/var/log/24ithub-fix-vici.log
 ```
 
 ---
 
-## Expected successful result
-
-A successful recovery should show:
+# Expected Successful Output
 
 ```text
 MariaDB : active
-Postfix : inactive
 Apache  : active
 Asterisk: running
+Postfix : inactive
 
 Postfix maildrop files remaining: 0
+
 SUCCESS: Maildrop cleanup completed
 SUCCESS: MariaDB is running
+
 Recovery completed.
 ```
 
-The inode usage should also fall significantly:
-
-```text
-Before: 100%
-After : 5% to 20%
-```
-
-Actual values depend on the server and installed files.
-
 ---
 
-## Important warning
+# Manual Verification
 
-This script:
-
-- Disables Postfix
-- Deletes pending files from `/var/spool/postfix/maildrop`
-- Disables cron email output addressed to the root user
-
-Do not run this tool on a server that actively depends on Postfix for:
-
-- Customer email delivery
-- Scheduled report emails
-- Voicemail-to-email delivery
-- Password reset emails
-- System alerts
-- Application email delivery
-
-Pending Postfix maildrop messages are permanently deleted.
-
-Review the script before running it on a production server.
-
----
-
-## Database repair limitations
-
-The tool uses:
-
-```bash
-mysqlcheck -u root --check asterisk
-mysqlcheck -u root --auto-repair asterisk
-```
-
-Automatic repair mainly applies to supported MyISAM tables.
-
-Some tables may display:
-
-```text
-The storage engine for the table doesn't support check
-```
-
-This is normally informational for MEMORY or other unsupported table engines and does not automatically indicate corruption.
-
-Severe InnoDB corruption requires a separate recovery procedure.
-
----
-
-## Manual verification
-
-Check MariaDB:
+MariaDB
 
 ```bash
 systemctl status mariadb --no-pager
 ```
 
-Check Asterisk:
+Asterisk
 
 ```bash
 asterisk -rx "core show uptime"
 ```
 
-Check Apache:
+Apache
 
 ```bash
 systemctl status httpd --no-pager
 ```
 
-Check VICIdial processes:
+VICIdial Screens
 
 ```bash
 screen -ls
 ```
 
-Check remaining Postfix maildrop files:
+Maildrop Queue
 
 ```bash
 find /var/spool/postfix/maildrop -type f | wc -l
 ```
 
-Check inodes:
+Inode Usage
 
 ```bash
 df -i
@@ -248,49 +179,74 @@ df -i
 
 ---
 
-## Repository
+# Warning
 
-Source code:
+This tool performs the following actions:
+
+- Stops Postfix
+- Disables Postfix
+- Deletes all files from
 
 ```text
-https://github.com/24ithub/24ithub-tools
+/var/spool/postfix/maildrop
 ```
 
-Raw script:
+- Disables cron emails sent to the root user
+
+Do **NOT** run this tool on servers that actively use Postfix for:
+
+- Customer email delivery
+- Password reset emails
+- Voicemail-to-email
+- Application email
+- Scheduled reports
+- Alert notifications
+
+---
+
+# Database Repair
+
+The tool automatically runs:
+
+```bash
+mysqlcheck -u root --check asterisk
+mysqlcheck -u root --auto-repair asterisk
+```
+
+Some MEMORY or unsupported storage engines may display informational messages during checks. This does not necessarily indicate corruption.
+
+---
+
+# Repository
+
+GitHub Repository
+
+https://github.com/24ithub/24ithub-tools
+
+Latest Script
 
 ```text
 https://raw.githubusercontent.com/24ithub/24ithub-tools/main/fix-vici.sh
 ```
 
----
+Run Directly
 
-## Security
-
-Never add the following information to this public repository:
-
-- Database passwords
-- SIP passwords
-- API keys
-- Customer information
-- Server IP addresses
-- Private certificates
-- License keys
-- Authentication tokens
+```bash
+curl -fsSL https://raw.githubusercontent.com/24ithub/24ithub-tools/main/fix-vici.sh | bash
+```
 
 ---
 
-## License
+# License
 
 MIT License
 
 ---
 
-## Author
+# Author
 
 **24IThub LLC**
 
-Website:
+Website
 
-```text
 https://24ithub.com
-```
