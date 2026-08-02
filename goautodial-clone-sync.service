@@ -1,0 +1,14 @@
+[Unit]
+Description=Synchronize GOautodial clone IP settings
+Wants=network-online.target
+After=network-online.target mariadb.service
+Requires=mariadb.service
+Before=rtpengine.service kamailio.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/goautodial-clone-sync --boot
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
